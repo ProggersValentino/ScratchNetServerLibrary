@@ -1,0 +1,8 @@
+﻿  ScratchNetServer.cpp
+C:\LibraryProjects\ScratchPacketLibrary\ScratchPacket\Payload.h(26,20): warning C4251: 'Payload::setChanges': 'std::vector<char,std::allocator<char>>' needs to have dll-interface to be used by clients of 'Payload'
+  (compiling source file '/ScratchNetServer.cpp')
+      C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\vector(442,7):
+      see declaration of 'std::vector<char,std::allocator<char>>'
+  
+     Creating library C:\LibraryProjects\ScratchServerLibrary\x64\Debug\ScratchServerLibrary.lib and object C:\LibraryProjects\ScratchServerLibrary\x64\Debug\ScratchServerLibrary.exp
+  ScratchServerLibrary.vcxproj -> C:\LibraryProjects\ScratchServerLibrary\x64\Debug\ScratchServerLibrary.dll
