@@ -1,0 +1,8 @@
+*.ipch
+*.hint
+*.xml
+ScatchPacket/x64/Debug/*
+*.exe
+*.1.tlog
+*.tlog
+.vs
