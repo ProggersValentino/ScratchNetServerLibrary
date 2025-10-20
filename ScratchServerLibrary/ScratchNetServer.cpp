@@ -447,7 +447,17 @@ SNS_API void ShutdownServer(ScratchNetServer* server)
 {
     shutDownRequested = true;
 
-    server->serverThread.join();
-    server->heartBeatWorker.join();
+    if (server->serverThread.joinable())
+    {
+        server->serverThread.join();
+    }
+    
+    if (server->heartBeatWorker.joinable())
+    {
+        server->heartBeatWorker.join();
+    }
+
+    server->listeningSocket.Close();
+    
 }
 
