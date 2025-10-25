@@ -4,6 +4,7 @@
 #include "ScratchPacketHeader.h"
 #include "Payload.h"
 #include "PacketSerialization.h"
+#include "NetSockets.h"
 
 std::atomic<bool> shutDownRequested = false;
 const int safetyBuffer = 32;
@@ -56,9 +57,16 @@ void ScratchNetServer::MainProcess()
             case -1: //cant connect
                 continue;
 
-            case 1:
+            case 1: //fresh connection
 
                 currentClient->clientSSRecordKeeper->InsertNewRecord(0, *initialSnap);
+
+                if (FindPlayer(address) != 0) //is the current player we're registering the host
+                {
+                    //send baseline networked objects to new client for initialization
+                    InitializeNewClientWithHostState(currentClient);
+                }
+                
 
                 break;
             default:
@@ -282,9 +290,6 @@ void ScratchNetServer::UpdateLocalNetworkedObjectsOnClientRecords(ClientRecord c
 {
     for (int i = 0; i < playerConnected.size(); i++)
     {
-        std::vector<char> changedValues; //the changes to the data to be sent over
-
-        std::vector<EVariablesToChange> changedVariables;
 
         ClientRecord& client = GetClientRecord(i);
 
@@ -318,6 +323,8 @@ void ScratchNetServer::ReplicateChangeGroupToAllClients()
             ConstructPacket(heartBeatHeader, *heartBeatPayload, transmitBuf);
 
             int sentBytes = listeningSocket.Send(*client.clientAddress, transmitBuf, totalPacketSize);
+
+            client.packetAckMaintence->IncrementPacketSequence();
             delete heartBeatPayload;
         }
 
@@ -348,6 +355,8 @@ void ScratchNetServer::ReplicateChangeToAllClients(Snapshot changes)
 
         //int sentBytes = listeningSocket.Send(*client.clientAddress, transmitBuf, 55 + safetyBuffer); //TODO: Fix address to be able to be used to send back to a sender
         int sendBytes = sendto(listeningSocket.GetSocket(), transmitBuf, tSize, 0, (SOCKADDR*)&address.sockAddr, sizeof(address.GetSockAddrIn()));
+
+        client.packetAckMaintence->IncrementPacketSequence();
         delete heartBeatPayload;
     }
 }
@@ -360,7 +369,7 @@ void ScratchNetServer::ReplicatedChangeToOtherClients(ClientRecord ClientSentCha
         {
             continue;
         }
-
+        int tSize = totalPacketSize;
         char transmitBuf[totalPacketSize] = { 0 };
 
         ClientRecord& client = GetClientRecord(i);
@@ -377,7 +386,12 @@ void ScratchNetServer::ReplicatedChangeToOtherClients(ClientRecord ClientSentCha
 
         ConstructPacket(heartBeatHeader, *heartBeatPayload, transmitBuf);
 
-        int sentBytes = listeningSocket.Send(*client.clientAddress, transmitBuf, totalPacketSize);
+        Address address = *client.clientAddress; //derefernced value
+
+        //int sentBytes = listeningSocket.Send(address, transmitBuf, 55 + safetyBuffer);
+        int sendBytes = sendto(listeningSocket.GetSocket(), transmitBuf, tSize, 0, (SOCKADDR*)&address.sockAddr, sizeof(address.GetSockAddrIn()));
+
+        client.packetAckMaintence->IncrementPacketSequence();
         delete heartBeatPayload;
     }
 }
@@ -397,7 +411,9 @@ void ScratchNetServer::RelayClientPosition(ClientRecord client)
     Address address = *client.clientAddress; //derefernced value
 
     //int sentBytes = listeningSocket.Send(address, transmitBuf, 55 + safetyBuffer);
-    int sendBytes = sendto(listeningSocket.GetSocket(), transmitBuf, tSize, 0, (SOCKADDR*)&address.sockAddr, sizeof(address.GetSockAddrIn()));
+    int sendBytes = sendto(listeningSocket.GetSocket(), transmitBuf, tSize, 0, (SOCKADDR*)&address.sockAddr, sizeof(address.GetSockAddrIn())); //TODO: FIX socket send function
+
+    client.packetAckMaintence->IncrementPacketSequence();
 
     delete heartBeatPayload;
 }
@@ -420,6 +436,35 @@ void ScratchNetServer::SendHeartBeat()
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+
+}
+
+void ScratchNetServer::InitializeNewClientWithHostState(ClientRecord* newClientToInitialize)
+{
+    ClientRecord hostClient = GetClientRecord(0); //generally the host is always first
+
+    for (auto pair = hostClient.networkedObjects.begin(); pair != hostClient.networkedObjects.end(); ++pair)
+    {
+        char transmitBuf[totalPacketSize] = { 0 };
+
+        ScratchPacketHeader* header = InitPacketHeaderWithoutCRC(12, newClientToInitialize->clientSSRecordKeeper->baselineRecord.packetSequence, newClientToInitialize->packetAckMaintence->currentPacketSequence,
+            newClientToInitialize->packetAckMaintence->mostRecentRecievedPacket, newClientToInitialize->packetAckMaintence->GetAckBits(newClientToInitialize->packetAckMaintence->mostRecentRecievedPacket));
+    
+        Payload* payloadToSend = ConstructAbsolutePayload(pair->second);
+
+        ConstructPacket(*header, *payloadToSend, transmitBuf);
+
+        Address address = *newClientToInitialize->clientAddress;
+
+        for (int i = 0; i < 10; i++)
+        {
+            int sentBytes = listeningSocket.Send(address, transmitBuf, totalPacketSize);
+        }
+        
+
+        delete header;
+        delete payloadToSend;
     }
 
 }
