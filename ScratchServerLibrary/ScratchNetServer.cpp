@@ -131,6 +131,7 @@ void ScratchNetServer::MainProcess()
 
                 UpdateLocalNetworkedObjectsOnClientRecords(*currentClient, *newBaseline); //update all the client record's networkedObject with this change 
 
+                //TODO: fix the function to accept packet code 11 -> relative
                 ReplicatedChangeToOtherClients(*currentClient, *newBaseline, 12); //send the change to the other connected clients
 
                 break;
