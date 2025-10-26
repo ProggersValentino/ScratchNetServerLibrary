@@ -131,7 +131,7 @@ void ScratchNetServer::MainProcess()
 
                 UpdateLocalNetworkedObjectsOnClientRecords(*currentClient, *newBaseline); //update all the client record's networkedObject with this change 
 
-                ReplicatedChangeToOtherClients(*currentClient, *extractedChanges, 11); //send the change to the other connected clients
+                ReplicatedChangeToOtherClients(*currentClient, *newBaseline, 12); //send the change to the other connected clients
 
                 break;
 
@@ -205,9 +205,9 @@ const Address& ScratchNetServer::GetClientAddress(int clientIndex)
     return *playerRecord[clientIndex]->clientAddress;
 }
 
-ClientRecord& ScratchNetServer::GetClientRecord(int clientIndex)
+ClientRecord* ScratchNetServer::GetClientRecord(int clientIndex)
 {
-    return *playerRecord[clientIndex];
+    return playerRecord[clientIndex];
 }
 
 bool ScratchNetServer::TryToAddPlayer(Address* potentialPlayer, ClientRecord*& OUTRecord)
@@ -291,9 +291,9 @@ void ScratchNetServer::UpdateLocalNetworkedObjectsOnClientRecords(ClientRecord c
     for (int i = 0; i < playerConnected.size(); i++)
     {
 
-        ClientRecord& client = GetClientRecord(i);
+        ClientRecord* client = GetClientRecord(i);
 
-        UpdateClientObjects(&client, ObjectChanges);
+        UpdateClientObjects(client, ObjectChanges);
 
 
     }
@@ -311,7 +311,7 @@ void ScratchNetServer::ReplicateChangeGroupToAllClients()
 
         char transmitBuf[totalPacketSize] = { 0 };
 
-        ClientRecord client = GetClientRecord(i);
+        ClientRecord client = *GetClientRecord(i);
 
         for (auto pair = client.networkedObjects.begin(); pair != client.networkedObjects.end(); ++pair)
         {
@@ -342,7 +342,7 @@ void ScratchNetServer::ReplicateChangeToAllClients(Snapshot changes)
         const int tSize = totalPacketSize;
         char transmitBuf[tSize] = { 0 };
 
-        ClientRecord& client = GetClientRecord(i);
+        ClientRecord client = *GetClientRecord(i);
 
         ScratchPacketHeader heartBeatHeader = ScratchPacketHeader(12, client.clientSSRecordKeeper->baselineRecord.packetSequence, client.packetAckMaintence->currentPacketSequence,
             client.packetAckMaintence->mostRecentRecievedPacket, client.packetAckMaintence->GetAckBits(client.packetAckMaintence->mostRecentRecievedPacket));
@@ -372,7 +372,7 @@ void ScratchNetServer::ReplicatedChangeToOtherClients(ClientRecord ClientSentCha
         int tSize = totalPacketSize;
         char transmitBuf[totalPacketSize] = { 0 };
 
-        ClientRecord& client = GetClientRecord(i);
+        ClientRecord client = *GetClientRecord(i);
 
         if (client == ClientSentChanges)
         {
@@ -430,7 +430,7 @@ void ScratchNetServer::SendHeartBeat()
                 continue;
             }
 
-            ClientRecord client = GetClientRecord(i); //grabbing a copy of the client record to prevent it from getting entangled with the main thread 
+            ClientRecord client = *GetClientRecord(i); //grabbing a copy of the client record to prevent it from getting entangled with the main thread 
 
             RelayClientPosition(client); //update the baseline for the client 
         }
@@ -442,7 +442,7 @@ void ScratchNetServer::SendHeartBeat()
 
 void ScratchNetServer::InitializeNewClientWithHostState(ClientRecord* newClientToInitialize)
 {
-    ClientRecord hostClient = GetClientRecord(0); //generally the host is always first
+    ClientRecord hostClient = *GetClientRecord(0); //generally the host is always first
 
     for (auto pair = hostClient.networkedObjects.begin(); pair != hostClient.networkedObjects.end(); ++pair)
     {

@@ -39,7 +39,7 @@ public:
     int FindFreeClientIndex() const;
     bool IsClientConnected(int clientIndex);
     const Address& GetClientAddress(int clientIndex);
-    ClientRecord& GetClientRecord(int clientIndex);
+    ClientRecord* GetClientRecord(int clientIndex);
 
     bool TryToAddPlayer(Address* potentialPlayer, ClientRecord*& OUTRecord);
 
