@@ -107,6 +107,10 @@ public:
     std::thread serverThread;
     std::thread heartBeatWorker;
 
+    //send rate
+    const int packetSendRate = 0;
+    const float packetMilliConverted = 0.f /*1.f / packetSendRate*/;
+    float accum = 0.f;
     
 
 };

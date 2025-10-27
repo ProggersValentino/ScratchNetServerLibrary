@@ -6,10 +6,15 @@
 #include "PacketSerialization.h"
 #include "NetSockets.h"
 
+#include <iostream>
+#include <thread>
+#include <chrono>
+
 std::atomic<bool> shutDownRequested = false;
 const int safetyBuffer = 32;
 const int packetSize = 55;
 const int totalPacketSize = packetSize + safetyBuffer;
+
 
 ScratchNetServer::ScratchNetServer()
 {
@@ -26,7 +31,8 @@ void ScratchNetServer::MainProcess()
     //playerRecord.reserve(maxPlayers); //assign amount of players
     //playerConnected.reserve(maxPlayers); //assign amount of players
 
-    
+    auto prevClock = std::chrono::high_resolution_clock::now();
+   
 
     char recieveBuf[totalPacketSize];
     int size = totalPacketSize;
@@ -37,6 +43,14 @@ void ScratchNetServer::MainProcess()
 
     while (!shutDownRequested)
     {
+        //delay
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float delta = std::chrono::duration<float>(currentTime - prevClock).count();
+        prevClock = currentTime;
+
+        accum += delta; //update the current accumulated time
+
+
         Address address = *CreateAddress();
         int recievedBytes = listeningSocket.Receive(address, recieveBuf, size);
 
@@ -114,7 +128,6 @@ void ScratchNetServer::MainProcess()
             currentClient->packetAckMaintence->mostRecentRecievedPacket = recvHeader.sequence; //only update the most recent sequence if the recieved one is higher than one the stored
             std::cout << "Packet accepted" << std::endl;
 
-
             //apply changes to other clients 
 
             Snapshot* extractedChanges = new Snapshot();
@@ -131,7 +144,7 @@ void ScratchNetServer::MainProcess()
 
                 UpdateLocalNetworkedObjectsOnClientRecords(*currentClient, *newBaseline); //update all the client record's networkedObject with this change 
 
-                //TODO: fix the function to accept packet code 11 -> relative
+                //TODO: fix the function to accept packet code 11 -> relative pakcets
                 ReplicatedChangeToOtherClients(*currentClient, *newBaseline, 12); //send the change to the other connected clients
 
                 break;
@@ -165,6 +178,8 @@ void ScratchNetServer::MainProcess()
                 continue;
             }*/
         }
+
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     //heartBeatWorker.join();
@@ -422,21 +437,38 @@ void ScratchNetServer::RelayClientPosition(ClientRecord client)
 
 void ScratchNetServer::SendHeartBeat()
 {
+    auto prevClock = std::chrono::high_resolution_clock::now();
+   /* float accum = 0.f;*/
+
     while (!shutDownRequested)
     {
-        for (int i = 0; i < playerConnected.size(); i++)
+        //delay
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float delta = std::chrono::duration<float>(currentTime - prevClock).count();
+        prevClock = currentTime;
+
+        accum += delta; //update the current accumulated time
+
+        if (accum >= packetMilliConverted)
         {
-            if (!playerConnected[i]) //dont need to update a disconnected player
+            accum = 0.f;
+
+            for (int i = 0; i < playerConnected.size(); i++)
             {
-                continue;
+                if (!playerConnected[i]) //dont need to update a disconnected player
+                {
+                    continue;
+                }
+
+                ClientRecord client = *GetClientRecord(i); //grabbing a copy of the client record to prevent it from getting entangled with the main thread 
+
+                RelayClientPosition(client); //update the baseline for the client 
             }
-
-            ClientRecord client = *GetClientRecord(i); //grabbing a copy of the client record to prevent it from getting entangled with the main thread 
-
-            RelayClientPosition(client); //update the baseline for the client 
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+       
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
 }
