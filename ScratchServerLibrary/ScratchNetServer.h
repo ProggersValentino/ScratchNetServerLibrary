@@ -77,6 +77,8 @@ public:
 
     void InitializeNewClientWithHostState(ClientRecord* newClientToInitialize);
 
+    void UpdatePacketSendRateCalc();
+
     static BOOL ConsoleHandler(DWORD signal) {
         switch (signal) {
         case CTRL_C_EVENT:
@@ -108,8 +110,8 @@ public:
     std::thread heartBeatWorker;
 
     //send rate
-    const int packetSendRate = 0;
-    const float packetMilliConverted = 0.f /*1.f / packetSendRate*/;
+    int packetSendRate = 0;
+    float packetMilliConverted = 1.f / packetSendRate;
     float accum = 0.f;
     
 
@@ -125,4 +127,6 @@ extern "C"
 
     //gracefully shutdown the server and any other processes running in the background
     SNS_API void ShutdownServer(ScratchNetServer* server);
+
+    SNS_API void SetServerPacketSendRate(ScratchNetServer* server, int sendRate);
 }

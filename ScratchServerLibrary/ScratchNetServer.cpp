@@ -51,7 +51,9 @@ void ScratchNetServer::MainProcess()
         accum += delta; //update the current accumulated time
 
 
-        Address address = *CreateAddress();
+        Address address = Address();
+        
+
         int recievedBytes = listeningSocket.Receive(address, recieveBuf, size);
 
         //have recieved any packets?
@@ -69,6 +71,7 @@ void ScratchNetServer::MainProcess()
             switch (clientConnectionStatus)
             {
             case -1: //cant connect
+                delete initialSnap;
                 continue;
 
             case 1: //fresh connection
@@ -90,8 +93,8 @@ void ScratchNetServer::MainProcess()
             delete initialSnap; //no need for initial snap anymore
 
             //processing recieved packet
-            ScratchPacketHeader recvHeader = *InitEmptyPacketHeader();
-            Payload recievedPayload = *CreateEmptyPayload();
+            ScratchPacketHeader recvHeader = ScratchPacketHeader();
+            Payload recievedPayload = Payload();
 
             printf("Recieved %d bytes\n", recievedBytes);
             printf("Received package: %s '\n'", recieveBuf);
@@ -130,8 +133,8 @@ void ScratchNetServer::MainProcess()
 
             //apply changes to other clients 
 
-            Snapshot* extractedChanges = new Snapshot();
-            Snapshot* newBaseline = new Snapshot();
+            Snapshot* extractedChanges = nullptr;
+            Snapshot* newBaseline = nullptr;
 
 
             //update snapshot baseline
@@ -164,19 +167,6 @@ void ScratchNetServer::MainProcess()
             //memory management
             delete extractedChanges;
             delete newBaseline;
-
-
-
-
-
-            //send echo
-            //int sendBytes = sendto(listeningSocket.GetSocket(), recieveBuf, size, 0, (SOCKADDR*)&address.sockAddr, sizeof(address.GetSockAddrIn()));
-
-          /*  if (sendBytes == SOCKET_ERROR)
-            {
-                printf("Error sending data with %d \n", WSAGetLastError());
-                continue;
-            }*/
         }
 
         //std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -502,6 +492,11 @@ void ScratchNetServer::InitializeNewClientWithHostState(ClientRecord* newClientT
 
 }
 
+void ScratchNetServer::UpdatePacketSendRateCalc()
+{
+    packetMilliConverted = 1.f / packetSendRate;
+}
+
 SNS_API ScratchNetServer* InitializeScratchServer()
 {
     ScratchNetServer* serverObj = new ScratchNetServer();
@@ -537,5 +532,11 @@ SNS_API void ShutdownServer(ScratchNetServer* server)
 
     server->listeningSocket.Close();
     
+}
+
+void SetServerPacketSendRate(ScratchNetServer* server, int sendRate)
+{
+    server->packetSendRate = sendRate;
+    server->UpdatePacketSendRateCalc();
 }
 
